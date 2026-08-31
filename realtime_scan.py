@@ -376,8 +376,8 @@ async def listen(buffer: TradeBuffer) -> None:
                 async def watchdog():
                     while True:
                         await asyncio.sleep(30)
-                        if time.time() - last_message_time > 90:
-                            print("[REALTIME] No messages for 90s — forcing reconnect.", flush=True)
+                        if time.time() - last_message_time > 5:
+                            print("[REALTIME] No messages for 5s — forcing reconnect.", flush=True)
                             await ws.close()
                             return
 
