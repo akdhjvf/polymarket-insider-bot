@@ -159,21 +159,20 @@ async def get_midpoint(token_id: str) -> float:
 
 
 def get_alert_token_id(alert: dict) -> str:
-    """Accept common token-id field names used by detector/scoring pipelines."""
-    for key in ("asset", "token_id", "tokenId", "asset_id", "clobTokenId"):
-        value = alert.get(key)
-        if value:
-            return str(value)
+    condition_id = alert["conditionId"]
+    try:
+        url = f"{CLOB_URL}/markets/{condition_id}"
+        with urllib.request.urlopen(url, timeout=10) as response:
+            market = json.loads(response.read().decode("utf-8"))
 
-    # Some pipelines keep the token information inside a nested market object.
-    market = alert.get("market")
-    if isinstance(market, dict):
-        for key in ("asset", "token_id", "tokenId", "clobTokenId"):
-            value = market.get(key)
-            if value:
-                return str(value)
+        tokens = market.get("tokens", [])
+        result = {t["outcome"]: t["token_id"] for t in tokens if "outcome" in t and "token_id" in t}
 
-    return ""
+        return result
+
+    except Exception as e:
+        print(f"[TOKEN LOOKUP] Failed for {condition_id}: {e}", flush=True)
+        return {}
 
 
 def get_alert_price(alert: dict) -> float:
@@ -197,13 +196,13 @@ async def auto_buy(alert: dict) -> dict:
     if severity < AUTO_BUY_MIN_SEVERITY:
         return {"success": False, "skipped": True, "reason": f"severity {severity} < 8"}
 
-    token_id = get_alert_token_id(alert)
+    outcome_tokens = get_alert_token_id(alert)
+    token_id = outcome_tokens.get(alert["outcome"])
+  
     if not token_id:
         raise ValueError("Signal has no token ID / asset field")
 
-    signal_price = get_alert_price(alert)
-    midpoint = await get_midpoint(token_id)
-    market_price = midpoint if midpoint > 0 else signal_price
+    market_price = await get_midpoint(token_id)
 
     if market_price <= 0:
         raise ValueError(f"No valid market price for token {token_id}")
