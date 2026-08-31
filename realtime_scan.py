@@ -26,6 +26,7 @@ import time
 import httpx
 from concurrent.futures import ThreadPoolExecutor
 import py_clob_client_v2.http_helpers.helpers as _clob_http
+import urllib.request
 
 import websockets
 
