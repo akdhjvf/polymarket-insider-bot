@@ -148,7 +148,8 @@ async def get_midpoint(token_id: str) -> float:
 
     def _fetch():
         url = CLOB_URL + "/midpoint?" + urllib.parse.urlencode({"token_id": token_id})
-        with urllib.request.urlopen(url, timeout=8) as response:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as response:
             data = json.loads(response.read().decode("utf-8"))
         return float(data.get("mid", 0) or 0)
 
@@ -163,7 +164,8 @@ def get_alert_token_id(alert: dict) -> str:
     condition_id = alert["conditionId"]
     try:
         url = f"{CLOB_URL}/markets/{condition_id}"
-        with urllib.request.urlopen(url, timeout=10) as response:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as response:
             market = json.loads(response.read().decode("utf-8"))
 
         tokens = market.get("tokens", [])
