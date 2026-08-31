@@ -362,36 +362,44 @@ class TradeBuffer:
 
 
 async def listen(buffer: TradeBuffer) -> None:
-    """WebSocket connection with automatic exponential-backoff reconnect."""
     backoff = 2
     while True:
         try:
             async with websockets.connect(
-                REALTIME_WS_URL,
-                ping_interval=15,
-                ping_timeout=10,
+                REALTIME_WS_URL, ping_interval=15, ping_timeout=10
             ) as ws:
                 await ws.send(json.dumps(SUBSCRIBE_MESSAGE))
-                print("[REALTIME] Connected and subscribed to trade stream.", flush=True)
+                print("[REALTIME] Connected and subscribed.", flush=True)
                 backoff = 2
+                last_message_time = time.time()
 
-                async for raw_message in ws:
-                    try:
-                        message = json.loads(raw_message)
-                    except json.JSONDecodeError:
-                        continue
+                async def watchdog():
+                    while True:
+                        await asyncio.sleep(30)
+                        if time.time() - last_message_time > 90:
+                            print("[REALTIME] No messages for 90s — forcing reconnect.", flush=True)
+                            await ws.close()
+                            return
 
-                    if message.get("topic") == "activity" and message.get("type") == "trades":
-                        buffer.add(message.get("payload", {}))
+                watchdog_task = asyncio.create_task(watchdog())
+
+                try:
+                    async for raw_message in ws:
+                        last_message_time = time.time()
+                        try:
+                            message = json.loads(raw_message)
+                        except json.JSONDecodeError:
+                            continue
+                        if message.get("topic") == "activity" and message.get("type") == "trades":
+                            buffer.add(message.get("payload", {}))
+                finally:
+                    watchdog_task.cancel()
 
         except Exception as e:
-            print(
-                f"[REALTIME] Connection lost ({e}). Reconnecting in {backoff}s...",
-                file=sys.stderr,
-                flush=True,
-            )
+            print(f"[REALTIME] Connection lost ({e}). Reconnecting in {backoff}s...", file=sys.stderr, flush=True)
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
+
 
 
 async def periodic_scan(buffer: TradeBuffer) -> None:
