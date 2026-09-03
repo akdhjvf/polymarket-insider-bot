@@ -226,7 +226,7 @@ async def auto_buy(alert: dict) -> dict:
     if not token_id:
         raise ValueError("Signal has no token ID / asset field")
 
-    market_price = await get_midpoint(token_id)
+    market_price = alert.get("current_price")
 
     if market_price <= 0:
         raise ValueError(f"No valid market price for token {token_id}")
