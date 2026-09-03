@@ -213,6 +213,9 @@ async def auto_buy(alert: dict) -> dict:
     This function contains an explicit severity >= 8 gate even though the
     caller also gates, so a future refactor cannot accidentally bypass it.
     """
+    if alert.get("side") != "BUY":
+      raise ValueError("Signal is not a buy signal")
+    
     severity = float(alert.get("severity_score", 0))
     if severity < AUTO_BUY_MIN_SEVERITY:
         return {"success": False, "skipped": True, "reason": f"severity {severity} < 8"}
