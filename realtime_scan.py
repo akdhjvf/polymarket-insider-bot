@@ -75,6 +75,7 @@ POLY_SECRET = os.environ.get("POLY_SECRET", "")
 POLY_PASSPHRASE = os.environ.get("POLY_PASSPHRASE", "")
 PROXY_URL = os.environ.get("PROXY_URL", "")
 CLOB_URL = "https://clob.polymarket.com"
+GAMMA_URL = "https://gamma-api.polymarket.com"
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
@@ -163,13 +164,30 @@ async def get_midpoint(token_id: str) -> float:
 def get_alert_token_id(alert: dict) -> str:
     condition_id = alert["conditionId"]
     try:
-        url = f"{CLOB_URL}/markets/{condition_id}"
+        url = f"{GAMMA_URL}/markets?condition_ids={condition_id}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as response:
-            market = json.loads(response.read().decode("utf-8"))
+            markets = json.loads(response.read().decode("utf-8"))
 
-        tokens = market.get("tokens", [])
-        result = {t["outcome"]: t["token_id"] for t in tokens if "outcome" in t and "token_id" in t}
+        if not markets:
+            print(f"[TOKEN LOOKUP] No market found for {condition_id}", flush=True)
+            return {}
+
+        market = markets[0]
+
+        raw_outcomes = market.get("outcomes", [])
+        raw_token_ids = market.get("clobTokenIds", [])
+
+        # Gamma sometimes returns these as JSON-encoded strings, sometimes as
+        # already-parsed lists — handle both.
+        outcomes = json.loads(raw_outcomes) if isinstance(raw_outcomes, str) else raw_outcomes
+        token_ids = json.loads(raw_token_ids) if isinstance(raw_token_ids, str) else raw_token_ids
+
+        if not outcomes or not token_ids or len(outcomes) != len(token_ids):
+            print(f"[TOKEN LOOKUP] Mismatched or empty outcomes/tokens for {condition_id}", flush=True)
+            return {}
+
+        result = dict(zip(outcomes, token_ids))
 
         return result
 
