@@ -63,7 +63,7 @@ SUBSCRIBE_MESSAGE = {
 # Hard safety gate: the bot will ONLY auto-buy severity >= 8.
 AUTO_BUY_MIN_SEVERITY = 8
 AUTO_BUY_ENABLED = os.environ.get("AUTO_BUY_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
-AUTO_BUY_USD = float(os.environ.get("AUTO_BUY_USD", "10"))
+AUTO_BUY_USD = float(os.environ.get("AUTO_BUY_USD", "40"))
 AUTO_BUY_MAX_PRICE = float(os.environ.get("AUTO_BUY_MAX_PRICE", "0.95"))
 AUTO_BUY_PRICE_OFFSET = float(os.environ.get("AUTO_BUY_PRICE_OFFSET", "0.02"))
 AUTO_BUY_RETRIES = max(1, int(os.environ.get("AUTO_BUY_RETRIES", "3")))
@@ -524,7 +524,7 @@ async def periodic_scan(buffer: TradeBuffer) -> None:
                     )
 
                 # ── HARD AUTO-BUY GATE: severity must be >= 8 ───────────────
-                if severity >= AUTO_BUY_MIN_SEVERITY:
+                if severity >= AUTO_BUY_MIN_SEVERITY and scored['type'] == "WHALE":
                     try:
                         result = await auto_buy(scored)
                         if result.get("success"):
