@@ -221,7 +221,8 @@ async def auto_buy(alert: dict) -> dict:
         return {"success": False, "skipped": True, "reason": f"severity {severity} < 8"}
 
     outcome_tokens = get_alert_token_id(alert)
-    token_id = outcome_tokens.get(alert["outcome"])
+    temp = outcome_tokens.get(alert["outcome"])
+    token_id = [tid for name, tid in outcome_tokens.items() if tid != temp][0]
   
     if not token_id:
         raise ValueError("Signal has no token ID / asset field")
@@ -241,8 +242,8 @@ async def auto_buy(alert: dict) -> dict:
         }
 
     # OrderArgs.size is token shares, not USD. Convert the USD budget to shares.
-    shares = round(AUTO_BUY_USD / market_price, 4)
-    limit_price = round(min(AUTO_BUY_MAX_PRICE, market_price + AUTO_BUY_PRICE_OFFSET), 4)
+    shares = round(AUTO_BUY_USD / (1 - market_price), 4)
+    limit_price = round(min(0.99, 1 - market_price + AUTO_BUY_PRICE_OFFSET), 4)
 
     if shares <= 0:
         raise ValueError(f"Calculated share size is invalid: {shares}")
@@ -524,7 +525,7 @@ async def periodic_scan(buffer: TradeBuffer) -> None:
                     )
 
                 # ── HARD AUTO-BUY GATE: severity must be >= 8 ───────────────
-                if severity >= AUTO_BUY_MIN_SEVERITY and scored['type'] == "WHALE":
+                if severity >= AUTO_BUY_MIN_SEVERITY:
                     try:
                         result = await auto_buy(scored)
                         if result.get("success"):
